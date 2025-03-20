@@ -1,0 +1,28 @@
+[project]
+name = "cal-cabb"
+version = "0.1.0"
+description = "ATCA CABB continuum calibration pipeline."
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+    "astropy>=6.1.7",
+    "click>=8.1.8",
+    "colorlog>=6.9.0",
+    "pandas>=2.2.3",
+    "pre-commit>=4.1.0",
+]
+
+[project.scripts]
+atca-cal = "cal_cabb.cli.atca_cal:main"
+
+[dependency-groups]
+dev = [
+    "isort>=6.0.0",
+    "mypy>=1.15.0",
+    "pre-commit>=4.1.0",
+    "ruff>=0.9.7",
+]
+
+
+[tool.ruff]
+lint.ignore = ["E741"]
