@@ -3,7 +3,7 @@ name = "cal-cabb"
 version = "0.1.0"
 description = "ATCA CABB continuum calibration pipeline."
 readme = "README.md"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "astropy>=6.1.7",
     "click>=8.1.8",
