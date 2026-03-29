@@ -48,9 +48,12 @@ class Band:
 
 BANDS = {
     "L": Band(freq="2100", spec="2.1", IF="1"),
+    "Lbc": Band(freq="2112", spec="2.112", IF="1"),
     "C": Band(freq="5500", spec="5.5", IF="1"),
+    "Cbc": Band(freq="8128", spec="8.128", IF="1"),
     "X": Band(freq="9000", spec="9.0", IF="2"),
     "K": Band(freq="12000", spec="12.0", IF="1"),
+    "BC": Band(freq="2101", spec="2.1", IF="1"),
 }
 
 
@@ -67,6 +70,7 @@ class MiriadWrapper:
     IF: str = None
     noflag: bool = False
     strong_pol: bool = False
+    low_parang: bool = False
     out_dir: Path = Path(".")
     verbose: bool = False
 
@@ -108,6 +112,20 @@ class MiriadWrapper:
         )
 
         parse_stdout_stderr(p, logger, print_stdout)
+
+        return
+
+    def load_bigcat_data(self):
+        logger.info(f"Loading BIGCAT MS from {self.data_dir}")
+        self.run_command(
+            "load_bigcat_data",
+            args=[
+                str(self.out_dir.absolute()),
+                str(self.data_dir),
+                "true" if self.noflag else "false",
+                str(self.project_code),
+            ],
+        )
 
         return
 
@@ -199,6 +217,10 @@ class MiriadWrapper:
         logger.info(f"Flagging {vis} between {start_time}-{end_time}")
         self.run_command("flag_timerange", args=[vis, start_time, end_time])
 
+    def delaycal(self, vis):
+        logger.info(f"Running bandpass/delay calibration on {vis}")
+        self.run_command("cal_delays", args=[vis])
+
     def bandpass(self, vis):
         logger.info(f"Running bandpass calibration on {vis}")
         interpolate = "true" if self.noflag else "false"
@@ -216,6 +238,9 @@ class MiriadWrapper:
     def copycal(self, vis1, vis2):
         logger.info(f"Copying calibration tables from {vis1.name} to {vis2.name}")
         self.run_command("copy_cal", args=[vis1, vis2])
+
+    def extend_interval(self, vis):
+        self.run_command("extend_interval", args=[vis])
 
     def gpaver(self, vis):
         logger.info(f"Averaging calibration solutions for {vis}")
@@ -251,13 +276,20 @@ class CABBContinuumPipeline:
     shiftdec: float
     num_flag_rounds: int
     interactive: bool
+    bigcat: bool
 
     def __post_init__(self):
-        if os.path.exists(self.miriad.uvfile):
-            logger.warning(f"{self.miriad.uvfile} already exists, will not overwrite")
-            return
+        if self.bigcat:
+            # self.miriad.load_bigcat_data()
+            pass
+        else:
+            if os.path.exists(self.miriad.uvfile):
+                logger.warning(
+                    f"{self.miriad.uvfile} already exists, will not overwrite"
+                )
+                return
 
-        self.miriad.load_data(self.shiftra, self.shiftdec)
+            self.miriad.load_data(self.shiftra, self.shiftdec)
 
     def flag_sequence(self, target):
         self.miriad.blflag(
@@ -425,12 +457,12 @@ class CABBContinuumPipeline:
 
         # Primary bandpass / flux calibrator
         # ---------------------------------
-        self.miriad.bandpass(primary_cal)
 
         # Flag and solve for bandpass on primary calibrator
         if self.interactive:
             while prompt(f"Start interactive flagging of {primary_cal.name}?"):
                 self.flag_sequence(primary_cal)
+                # self.miriad.delaycal(primary_cal)
                 self.miriad.bandpass(primary_cal)
         else:
             for _ in range(self.num_flag_rounds):
@@ -442,10 +474,11 @@ class CABBContinuumPipeline:
 
         # Set options to work with strong or weakly polarised calibrator
         if self.miriad.strong_pol:
-            gp_options = "xyvary,qusolve,vsolve,xyref,polref"
-
+            gp_options = "qusolve,vsolve,xyref,polref"
+        elif self.miriad.low_parang:
+            gp_options = "noxy,nopol"
         else:
-            gp_options = "xyvary,qusolve"
+            gp_options = "nopol,qusolve"
 
         # TODO:
         # add flexibility for low parang coverage in which we switch off
@@ -479,6 +512,7 @@ class CABBContinuumPipeline:
         else:
             if primary_cal != gain_cal:
                 self.miriad.copycal(primary_cal, gain_cal)
+                # self.miriad.extend_interval(gain_cal)
 
         # Secondary gain calibrator
         # -------------------------
@@ -497,6 +531,7 @@ class CABBContinuumPipeline:
         # Science target
         # --------------
         self.miriad.copycal(gain_cal, target)
+        # self.miriad.extend_interval(target)
 
         if not self.miriad.noflag:
             self.miriad.autoflag(target)

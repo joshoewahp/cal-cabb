@@ -84,6 +84,12 @@ logger = logging.getLogger(__name__)
     help="Solve for absolute XY phase and leakage (requires good leakage calibrator)",
 )
 @click.option(
+    "--low-parang",
+    is_flag=True,
+    default=False,
+    help="Turn off XY-phase and QU solve (use if parallactic angle coverage is low)",
+)
+@click.option(
     "-F",
     "--noflag",
     is_flag=True,
@@ -132,6 +138,12 @@ logger = logging.getLogger(__name__)
     default=False,
     help="Store intermediate files produced by miriad.",
 )
+@click.option(
+    "--bigcat",
+    is_flag=True,
+    default=False,
+    help="Option to ingest BIGCAT MeasurementSet rather than RPFITS.",
+)
 @click.option("-v", "--verbose", is_flag=True, default=False)
 @click.argument("data_dir")
 @click.argument("project_code")
@@ -144,6 +156,7 @@ def main(
     target,
     leakage_cal,
     strong_pol,
+    low_parang,
     mfinterval,
     bpinterval,
     gpinterval,
@@ -160,6 +173,7 @@ def main(
     savelogs,
     diagnostics,
     keep_intermediate,
+    bigcat,
     verbose,
 ):
     os.system(f"mkdir -p {out_dir}")
@@ -173,6 +187,7 @@ def main(
         project_code=project_code,
         out_dir=out_dir,
         strong_pol=strong_pol,
+        low_parang=low_parang,
         mfinterval=mfinterval,
         bpinterval=bpinterval,
         gpinterval=gpinterval,
@@ -188,16 +203,57 @@ def main(
         shiftra=shiftra,
         shiftdec=shiftdec,
         num_flag_rounds=num_flag_rounds,
+        bigcat=bigcat,
         interactive=interactive,
     )
 
     try:
-        pipeline.miriad.set_targets(
-            primary_cal=primary_cal,
-            leakage_cal=leakage_cal,
-            gain_cal=gain_cal,
-            target=target,
-        )
+        # TODO: Allow input from either MS, UVfits, or raw miriad
+        if bigcat:
+            # pipeline.miriad.target_paths = {
+            #     "primary_cal": pipeline.miriad.path("1934-638"),
+            #     "gain_cal": pipeline.miriad.path("j0357-4625"),
+            #     "leakage_cal": pipeline.miriad.path(None),
+            #     "target": pipeline.miriad.path("sn2024abfo"),
+            # }
+            # pipeline.miriad.target_paths = {
+            #     "primary_cal": pipeline.miriad.path("1934-638"),
+            #     "gain_cal": pipeline.miriad.path("0823-500"),
+            #     "leakage_cal": pipeline.miriad.path(None),
+            #     "target": pipeline.miriad.path("vela"),
+            # }
+            # pipeline.miriad.target_paths = {
+            #     "primary_cal": pipeline.miriad.path("1934-638"),
+            #     "gain_cal": pipeline.miriad.path("0332-403"),
+            #     "leakage_cal": pipeline.miriad.path(None),
+            #     "target": pipeline.miriad.path("lp944"),
+            # }
+            # pipeline.miriad.target_paths = {
+            #     "primary_cal": pipeline.miriad.path("1934-638"),
+            #     "gain_cal": pipeline.miriad.path("0529+075"),
+            #     "leakage_cal": pipeline.miriad.path(None),
+            #     "target": pipeline.miriad.path("hd245567"),
+            # }
+            # pipeline.miriad.target_paths = {
+            #     "primary_cal": pipeline.miriad.path("1934-638"),
+            #     "gain_cal": pipeline.miriad.path("1622-297"),
+            #     "leakage_cal": pipeline.miriad.path(None),
+            #     "target": pipeline.miriad.path("emsr20"),
+            # }
+            pipeline.miriad.target_paths = {
+                "primary_cal": pipeline.miriad.path(primary_cal),
+                "leakage_cal": pipeline.miriad.path(leakage_cal),
+                "gain_cal": pipeline.miriad.path(gain_cal),
+                "target": pipeline.miriad.path(target),
+            }
+
+        else:
+            pipeline.miriad.set_targets(
+                primary_cal=primary_cal,
+                leakage_cal=leakage_cal,
+                gain_cal=gain_cal,
+                target=target,
+            )
     except ValueError as e:
         logger.error(e)
         exit(1)

@@ -14,6 +14,9 @@ dependencies = [
 
 [project.scripts]
 atca-cal = "cal_cabb.cli.atca_cal:main"
+load-bc = "cal_cabb.cli.load_bigcat:main"
+combine-raw = "cal_cabb.cli.combine_raw:main"
+atca-fix-field = "cal_cabb.cli.fix_missing_field:main"
 
 [dependency-groups]
 dev = [
